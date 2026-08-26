@@ -95,7 +95,7 @@ success "Estructura del fichero de perfiles válida."
 
 }
 
-check_dependences(){
+check_dependencies(){
 if ! command -v lutris >/dev/null 2>&1; then
     error "No se ha encontrado Lutris en el sistema."
     pause_exit
@@ -459,52 +459,47 @@ fi
 success "Estructura de la biblioteca creada."
 }
 
+link_lutris_resource(){
+    local source="$1"
+    local target="$2"
+    local resource_name="$3"
+
+    info "Configurando $resource_name compartido..."
+
+    if [[ -e "$target" || -L "$target" ]]; then
+        rm -rf -- "$target"
+    fi
+
+    ln -s -- "$source" "$target"
+
+    if [[ "$(readlink "$target")" == "$source" ]]; then
+        success "$resource_name compartido correctamente."
+    else
+        error "No se pudo crear el enlace de $resource_name."
+        rm -rf -- "$PRIVATE_DIR"
+        exit 1
+    fi
+
+
+}
+
 configure_shared_resources(){
 # ------------------------------------------------------------
 # Compartir Wine
 # ------------------------------------------------------------
-
-echo
-info "Configurando Wine compartido..."
-
-if [[ -e "$PRIVATE_DIR/lutris/runners/wine" ||
-      -L "$PRIVATE_DIR/lutris/runners/wine" ]]; then
-    rm -rf -- "$PRIVATE_DIR/lutris/runners/wine"
-fi
-
-ln -s -- "$NORMAL_LUTRIS/runners/wine" \
-      "$PRIVATE_DIR/lutris/runners/wine"
-
-if [[ "$(readlink "$PRIVATE_DIR/lutris/runners/wine")" == "$NORMAL_LUTRIS/runners/wine" ]]; then
-    success "Wine compartido correctamente."
-else
-    error "No se pudo crear el enlace de Wine."
-    rm -rf -- "$PRIVATE_DIR"
-    exit 1
-fi
+link_lutris_resource \
+    "$NORMAL_LUTRIS/runners/wine" \
+    "$PRIVATE_DIR/lutris/runners/wine" \
+    "Wine"
 
 # ------------------------------------------------------------
 # Compartir runtimes
 # ------------------------------------------------------------
+link_lutris_resource \
+    "$NORMAL_LUTRIS/runtime" \
+    "$PRIVATE_DIR/lutris/runtime" \
+    "Runtimes"
 
-echo
-info "Configurando runtimes compartidos..."
-
-if [[ -e "$PRIVATE_DIR/lutris/runtime" ||
-      -L "$PRIVATE_DIR/lutris/runtime" ]]; then
-    rm -rf -- "$PRIVATE_DIR/lutris/runtime"
-fi
-
-ln -s -- "$NORMAL_LUTRIS/runtime" \
-      "$PRIVATE_DIR/lutris/runtime"
-
-if [[ "$(readlink "$PRIVATE_DIR/lutris/runtime")" == "$NORMAL_LUTRIS/runtime" ]]; then
-    success "Runtimes compartidos correctamente."
-else
-    error "No se pudo crear el enlace de runtimes."
-    rm -rf -- "$PRIVATE_DIR"
-    exit 1
-fi
 
 }
 
