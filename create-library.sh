@@ -259,12 +259,27 @@ local name_length
     return 0
 }
 
+validate_pin(){
+    if [[ ! "$PIN" =~ ^[0-9]+$ ]]; then
+            printf '%s\n' "El PIN solo puede contener números."
+            return 1
+    fi
+
+    if (( ${#PIN} < MIN_PIN_LENGTH || ${#PIN} > MAX_PIN_LENGTH )); then
+        printf '%s\n' "El PIN debe tener entre $MIN_PIN_LENGTH y $MAX_PIN_LENGTH dígitos."
+        return 1
+    fi
+
+    return 0
+}
 generate_slug(){
     printf '%s' "$LIBRARY_NAME" \
         | tr '[:upper:]' '[:lower:]' \
         | sed -E 's/[[:space:]]+/-/g; s/[^a-z0-9_-]//g; s/-+/-/g'
 }
-
+generate_pin_hash(){
+    printf '%s' "$PIN" | sha256sum | awk '{print $1}'
+}
 configure_name (){
 # ------------------------------------------------------------
 # Nombre
@@ -348,15 +363,8 @@ if [[ "$USE_PIN" != "n" && "$USE_PIN" != "no" ]]; then
         read -rsp "PIN (4-8 dígitos): " PIN
         echo
 
-        if [[ ! "$PIN" =~ ^[0-9]+$ ]]; then
-            error "El PIN solo puede contener números."
-            continue
-        fi
-
-        PIN_LENGTH=${#PIN}
-
-        if (( PIN_LENGTH < MIN_PIN_LENGTH || PIN_LENGTH > MAX_PIN_LENGTH )); then
-            error "El PIN debe tener entre $MIN_PIN_LENGTH y $MAX_PIN_LENGTH dígitos."
+        if ! validation_error=$(validate_pin "$PIN"); then
+            error "$validation_error"
             continue
         fi
 
@@ -368,7 +376,7 @@ if [[ "$USE_PIN" != "n" && "$USE_PIN" != "no" ]]; then
             continue
         fi
 
-        PIN_HASH=$(printf '%s' "$PIN" | sha256sum | awk '{print $1}')
+        PIN_HASH=$(generate_pin_hash "$PIN")
 
         unset PIN
         unset PIN_CONFIRM
