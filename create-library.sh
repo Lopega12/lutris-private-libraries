@@ -224,11 +224,53 @@ check_target_directories
 echo
 }
 
+validate_library_name(){
+local name="$1"
+local name_length
+
+ if [[ -z "$name" ]]; then
+       printf '%s\n' "El nombre no puede estar vacío."
+        return 1
+    fi
+
+    name_length=${#name}
+
+    if (( name_length > MAX_NAME_LENGTH )); then
+       printf '%s\n' "El nombre es demasiado largo.
+         Longitud máxima: $MAX_NAME_LENGTH caracteres.
+         Longitud actual: $name_length caracteres."
+        return 1
+
+    fi
+
+    # Permitimos letras ASCII, números, espacios, guion y guion bajo.
+    if [[ ! "$name" =~ ^[A-Za-z0-9_][A-Za-z0-9_[:space:]-]*$ ]]; then
+       printf '%s\n' "El nombre contiene caracteres no permitidos.
+           Solo se permiten:
+           Letras, números, espacios, guion (-) y guion bajo (_)."
+        return 1
+    fi
+
+    if [[ "$name" == "." || "$name" == ".." ]]; then
+       printf '%s\n' "Ese nombre no está permitido."
+        return 1
+    fi
+
+    return 0
+}
+
+generate_slug(){
+    printf '%s' "$LIBRARY_NAME" \
+        | tr '[:upper:]' '[:lower:]' \
+        | sed -E 's/[[:space:]]+/-/g; s/[^a-z0-9_-]//g; s/-+/-/g'
+}
+
 configure_name (){
 # ------------------------------------------------------------
 # Nombre
 # ------------------------------------------------------------
 
+local validation_error
 echo "========================================"
 echo "          NOMBRE DE LA BIBLIOTECA"
 echo "========================================"
@@ -242,42 +284,14 @@ while true; do
     LIBRARY_NAME="${LIBRARY_NAME#"${LIBRARY_NAME%%[![:space:]]*}"}"
     LIBRARY_NAME="${LIBRARY_NAME%"${LIBRARY_NAME##*[![:space:]]}"}"
 
-    if [[ -z "$LIBRARY_NAME" ]]; then
-        error "El nombre no puede estar vacío."
-        echo
-        continue
-    fi
-
-    NAME_LENGTH=${#LIBRARY_NAME}
-
-    if (( NAME_LENGTH > MAX_NAME_LENGTH )); then
-        error "El nombre es demasiado largo."
-        echo "Longitud máxima: $MAX_NAME_LENGTH caracteres."
-        echo "Longitud actual: $NAME_LENGTH caracteres."
-        echo
-        continue
-    fi
-
-    # Permitimos letras ASCII, números, espacios, guion y guion bajo.
-    if [[ ! "$LIBRARY_NAME" =~ ^[A-Za-z0-9_][A-Za-z0-9_[:space:]-]*$ ]]; then
-        error "El nombre contiene caracteres no permitidos."
-        echo
-        echo "Solo se permiten:"
-        echo "  Letras, números, espacios, guion (-) y guion bajo (_)."
-        echo
-        continue
-    fi
-
-    if [[ "$LIBRARY_NAME" == "." || "$LIBRARY_NAME" == ".." ]]; then
-        error "Ese nombre no está permitido."
-        echo
-        continue
-    fi
+   if ! validation_error=$(validate_library_name "$LIBRARY_NAME"); then
+    error "$validation_error"
+    echo
+    continue
+fi
 
     # Crear identificador para rutas y ejecutable
-    SLUG=$(printf '%s' "$LIBRARY_NAME" \
-        | tr '[:upper:]' '[:lower:]' \
-        | sed -E 's/[[:space:]]+/-/g; s/[^a-z0-9_-]//g; s/-+/-/g')
+    SLUG=$(generate_slug "$LIBRARY_NAME")
 
     if [[ -z "$SLUG" ]]; then
         error "No se ha podido generar un identificador válido."
