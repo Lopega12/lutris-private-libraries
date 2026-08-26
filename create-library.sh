@@ -25,7 +25,6 @@ MAX_PIN_LENGTH=8
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
@@ -55,6 +54,108 @@ pause_exit() {
     exit 1
 }
 
+check_profiles_file(){
+if [[ ! -f "$PROFILES_JSON" ]]; then
+
+    info "No existe lutris-profiles.json. Creando..."
+
+    mkdir -p "$(dirname "$PROFILES_JSON")"
+
+    cat > "$PROFILES_JSON" <<EOF
+{
+  "Lutris": "\$HOME/.local/share/lutris"
+}
+EOF
+
+    if [[ ! -f "$PROFILES_JSON" ]]; then
+        error "No se pudo crear lutris-profiles.json."
+        pause_exit
+    fi
+
+    success "lutris-profiles.json creado."
+
+fi
+
+if ! jq empty "$PROFILES_JSON" >/dev/null 2>&1; then
+    error "El fichero lutris-profiles.json no es un JSON válido."
+    echo
+    echo "Corrige primero:"
+    echo "  $PROFILES_JSON"
+    pause_exit
+fi
+
+success "lutris-profiles.json es válido."
+
+if ! jq -e 'type == "object"' "$PROFILES_JSON" >/dev/null 2>&1; then
+    error "lutris-profiles.json no contiene un objeto JSON válido."
+    pause_exit
+fi
+
+success "Estructura del fichero de perfiles válida."
+
+}
+
+check_dependences(){
+if ! command -v lutris >/dev/null 2>&1; then
+    error "No se ha encontrado Lutris en el sistema."
+    pause_exit
+fi
+
+success "Lutris encontrado: $(command -v lutris)"
+
+
+if ! command -v jq >/dev/null 2>&1; then
+    error "No se ha encontrado jq."
+    pause_exit
+fi
+
+success "jq encontrado."
+}
+check_lutris_installation(){
+if [[ ! -d "$NORMAL_LUTRIS" ]]; then
+    error "No existe la instalación normal de Lutris:"
+    echo "  $NORMAL_LUTRIS"
+    pause_exit
+fi
+
+success "Directorio de Lutris encontrado."
+
+if [[ ! -d "$NORMAL_LUTRIS/runners" ]]; then
+    error "No existe el directorio de runners:"
+    echo "  $NORMAL_LUTRIS/runners"
+    pause_exit
+fi
+
+success "Directorio de runners encontrado."
+
+if [[ ! -d "$NORMAL_LUTRIS/runtime" ]]; then
+    error "No existe el directorio de runtimes:"
+    echo "  $NORMAL_LUTRIS/runtime"
+    pause_exit
+fi
+
+success "Directorio de runtimes encontrado."
+}
+
+check_target_directories(){
+mkdir -p "$LIBRARY_BASE" "$BIN_DIR" 2>/dev/null
+
+if [[ ! -w "$LIBRARY_BASE" ]]; then
+    error "No se puede escribir en:"
+    echo "  $LIBRARY_BASE"
+    pause_exit
+fi
+
+if [[ ! -w "$BIN_DIR" ]]; then
+    error "No se puede escribir en:"
+    echo "  $BIN_DIR"
+    pause_exit
+fi
+
+success "Directorios de destino disponibles."
+
+}
+disclaimer(){
 # ------------------------------------------------------------
 # Cabecera
 # ------------------------------------------------------------
@@ -101,7 +202,8 @@ case "${CONTINUE,,}" in
 esac
 
 echo
-
+}
+check_environment () {
 # ------------------------------------------------------------
 # Comprobaciones iniciales
 # ------------------------------------------------------------
@@ -110,137 +212,19 @@ echo "========================================"
 echo "       COMPROBANDO EL ENTORNO"
 echo "========================================"
 echo
+check_dependences
 
-if ! command -v lutris >/dev/null 2>&1; then
-    error "No se ha encontrado Lutris en el sistema."
-    pause_exit
-fi
+check_profiles_file
 
-success "Lutris encontrado: $(command -v lutris)"
+check_lutris_installation
 
-# ------------------------------------------------------------
-# Comprobar / inicializar lutris-profiles.json
-# ------------------------------------------------------------
+check_target_directories
 
-if ! command -v jq >/dev/null 2>&1; then
-    error "No se ha encontrado jq."
-    pause_exit
-fi
-
-success "jq encontrado."
-
-if [[ ! -f "$PROFILES_JSON" ]]; then
-
-    info "No existe lutris-profiles.json. Creando..."
-
-    mkdir -p "$(dirname "$PROFILES_JSON")"
-
-    cat > "$PROFILES_JSON" <<EOF
-{
-  "Lutris": "\$HOME/.local/share/lutris"
-}
-EOF
-
-    if [[ ! -f "$PROFILES_JSON" ]]; then
-        error "No se pudo crear lutris-profiles.json."
-        pause_exit
-    fi
-
-    success "lutris-profiles.json creado."
-
-fi
-
-if ! jq empty "$PROFILES_JSON" >/dev/null 2>&1; then
-    error "El fichero lutris-profiles.json no es un JSON válido."
-    echo
-    echo "Corrige primero:"
-    echo "  $PROFILES_JSON"
-    pause_exit
-fi
-
-success "lutris-profiles.json es válido."
-
-if ! jq -e 'type == "object"' "$PROFILES_JSON" >/dev/null 2>&1; then
-    error "lutris-profiles.json no contiene un objeto JSON válido."
-    pause_exit
-fi
-
-success "Estructura del fichero de perfiles válida."
-
-if [[ ! -d "$NORMAL_LUTRIS" ]]; then
-    error "No existe la instalación normal de Lutris:"
-    echo "  $NORMAL_LUTRIS"
-    pause_exit
-fi
-
-success "Directorio de Lutris encontrado."
-
-if [[ ! -d "$NORMAL_LUTRIS/runners" ]]; then
-    error "No existe el directorio de runners:"
-    echo "  $NORMAL_LUTRIS/runners"
-    pause_exit
-fi
-
-success "Directorio de runners encontrado."
-
-if [[ ! -d "$NORMAL_LUTRIS/runtime" ]]; then
-    error "No existe el directorio de runtimes:"
-    echo "  $NORMAL_LUTRIS/runtime"
-    pause_exit
-fi
-
-success "Directorio de runtimes encontrado."
-
-mkdir -p "$LIBRARY_BASE" "$BIN_DIR" 2>/dev/null
-
-if [[ ! -w "$LIBRARY_BASE" ]]; then
-    error "No se puede escribir en:"
-    echo "  $LIBRARY_BASE"
-    pause_exit
-fi
-
-if [[ ! -w "$BIN_DIR" ]]; then
-    error "No se puede escribir en:"
-    echo "  $BIN_DIR"
-    pause_exit
-fi
-
-success "Directorios de destino disponibles."
-
-if [[ ! -f "$PROFILES_JSON" ]]; then
-    error "No existe el fichero de perfiles:"
-    echo "  $PROFILES_JSON"
-    pause_exit
-fi
-
-success "Fichero de perfiles encontrado."
-
-if ! command -v jq >/dev/null 2>&1; then
-    error "No se ha encontrado jq."
-    pause_exit
-fi
-
-success "jq encontrado."
-
-if ! jq empty "$PROFILES_JSON" >/dev/null 2>&1; then
-    error "El fichero lutris-profiles.json no es un JSON válido."
-    echo
-    echo "Corrige primero:"
-    echo "  $PROFILES_JSON"
-    pause_exit
-fi
-
-success "lutris-profiles.json es válido."
-
-if ! jq -e 'type == "object"' "$PROFILES_JSON" >/dev/null 2>&1; then
-    error "lutris-profiles.json no contiene un objeto JSON válido."
-    pause_exit
-fi
-
-success "Estructura del fichero de perfiles válida."
 
 echo
+}
 
+configure_name (){
 # ------------------------------------------------------------
 # Nombre
 # ------------------------------------------------------------
@@ -332,17 +316,9 @@ done
 echo
 success "Nombre válido: $LIBRARY_NAME"
 success "Identificador: $SLUG"
+}
 
-# ------------------------------------------------------------
-# PIN
-# ------------------------------------------------------------
-
-echo
-echo "========================================"
-echo "          PROTECCIÓN MEDIANTE PIN"
-echo "========================================"
-echo
-
+configure_pin () {
 read -rp "¿Quieres proteger la biblioteca con un PIN? [S/n]: " USE_PIN
 
 USE_PIN="${USE_PIN,,}"
@@ -394,11 +370,10 @@ else
     success "La biblioteca no tendrá protección mediante PIN."
 
 fi
+}
 
-# ------------------------------------------------------------
-# Resumen
-# ------------------------------------------------------------
 
+summary(){
 echo
 echo "========================================"
 echo "               RESUMEN"
@@ -441,7 +416,10 @@ case "${FINAL_CONFIRM,,}" in
 esac
 
 echo
+}
 
+
+create_library(){
 # ------------------------------------------------------------
 # Creación
 # ------------------------------------------------------------
@@ -450,8 +428,6 @@ echo "========================================"
 echo "          CREANDO BIBLIOTECA"
 echo "========================================"
 echo
-
-CREATED_PRIVATE_DIR=false
 
 mkdir -p \
     "$PRIVATE_DIR/lutris/banners" \
@@ -464,8 +440,6 @@ if [[ ! -d "$PRIVATE_DIR/lutris" ]]; then
     error "No se pudo crear la estructura de Lutris."
     exit 1
 fi
-
-CREATED_PRIVATE_DIR=true
 success "Estructura de la biblioteca creada."
 
 # ------------------------------------------------------------
@@ -477,17 +451,17 @@ info "Configurando Wine compartido..."
 
 if [[ -e "$PRIVATE_DIR/lutris/runners/wine" ||
       -L "$PRIVATE_DIR/lutris/runners/wine" ]]; then
-    rm -rf "$PRIVATE_DIR/lutris/runners/wine"
+    rm -rf -- "$PRIVATE_DIR/lutris/runners/wine"
 fi
 
-ln -s "$NORMAL_LUTRIS/runners/wine" \
+ln -s -- "$NORMAL_LUTRIS/runners/wine" \
       "$PRIVATE_DIR/lutris/runners/wine"
 
 if [[ "$(readlink "$PRIVATE_DIR/lutris/runners/wine")" == "$NORMAL_LUTRIS/runners/wine" ]]; then
     success "Wine compartido correctamente."
 else
     error "No se pudo crear el enlace de Wine."
-    rm -rf "$PRIVATE_DIR"
+    rm -rf -- "$PRIVATE_DIR"
     exit 1
 fi
 
@@ -500,17 +474,17 @@ info "Configurando runtimes compartidos..."
 
 if [[ -e "$PRIVATE_DIR/lutris/runtime" ||
       -L "$PRIVATE_DIR/lutris/runtime" ]]; then
-    rm -rf "$PRIVATE_DIR/lutris/runtime"
+    rm -rf -- "$PRIVATE_DIR/lutris/runtime"
 fi
 
-ln -s "$NORMAL_LUTRIS/runtime" \
+ln -s -- "$NORMAL_LUTRIS/runtime" \
       "$PRIVATE_DIR/lutris/runtime"
 
 if [[ "$(readlink "$PRIVATE_DIR/lutris/runtime")" == "$NORMAL_LUTRIS/runtime" ]]; then
     success "Runtimes compartidos correctamente."
 else
     error "No se pudo crear el enlace de runtimes."
-    rm -rf "$PRIVATE_DIR"
+    rm -rf -- "$PRIVATE_DIR"
     exit 1
 fi
 
@@ -540,14 +514,16 @@ if $HAS_PIN; then
 
     if [[ ! -f "$PRIVATE_DIR/$HASH_FILE" ]]; then
         error "No se pudo guardar el hash del PIN."
-        rm -rf "$PRIVATE_DIR"
+        rm -rf -- "$PRIVATE_DIR"
         exit 1
     fi
 
     success "Hash SHA-256 guardado."
 
 fi
+}
 
+create_launcher(){
 # ------------------------------------------------------------
 # Crear lanzador
 # ------------------------------------------------------------
@@ -616,12 +592,15 @@ chmod 700 "$LAUNCHER"
 
 if [[ ! -x "$LAUNCHER" ]]; then
     error "No se pudo crear el lanzador."
-    rm -rf "$PRIVATE_DIR"
+    rm -rf -- "$PRIVATE_DIR"
     exit 1
 fi
 
 success "Lanzador creado."
+}
 
+
+verify_installation(){
 # ------------------------------------------------------------
 # Comprobación final
 # ------------------------------------------------------------
@@ -632,27 +611,27 @@ echo "       COMPROBANDO LA INSTALACIÓN"
 echo "========================================"
 echo
 
-CHECK_OK=true
+local check_ok=0
 
 if [[ -d "$PRIVATE_DIR/lutris" ]]; then
     success "Biblioteca privada"
 else
     error "Falta la biblioteca privada."
-    CHECK_OK=false
+    check_ok=1
 fi
 
 if [[ -L "$PRIVATE_DIR/lutris/runners/wine" ]]; then
     success "Wine compartido"
 else
     error "Falta el enlace de Wine."
-    CHECK_OK=false
+    check_ok=1
 fi
 
 if [[ -L "$PRIVATE_DIR/lutris/runtime" ]]; then
     success "Runtimes compartidos"
 else
     error "Falta el enlace de runtimes."
-    CHECK_OK=false
+    check_ok=1
 fi
 
 if $HAS_PIN; then
@@ -660,7 +639,7 @@ if $HAS_PIN; then
         success "Protección mediante PIN"
     else
         error "Falta el hash del PIN."
-        CHECK_OK=false
+        check_ok=1
     fi
 fi
 
@@ -668,25 +647,14 @@ if [[ -x "$LAUNCHER" ]]; then
     success "Lanzador ejecutable"
 else
     error "El lanzador no es ejecutable."
-    CHECK_OK=false
+    check_ok=1
 fi
+return "$check_ok"
+}
 
-# ------------------------------------------------------------
-# Resultado
-# ------------------------------------------------------------
 
-echo
 
-if ! $CHECK_OK; then
-
-    error "La creación no ha terminado correctamente."
-    echo
-    echo "La biblioteca puede estar incompleta:"
-    echo "  $PRIVATE_DIR"
-    exit 1
-
-fi
-
+registry_library_profile(){
 # ------------------------------------------------------------
 # Registrar biblioteca en lutris-profiles.json
 # ------------------------------------------------------------
@@ -709,7 +677,7 @@ if jq --arg name "$LIBRARY_NAME" \
       '.[$name] = $path' \
       "$PROFILES_JSON" > "$TMP_PROFILES"; then
 
-    mv "$TMP_PROFILES" "$PROFILES_JSON"
+    mv -- "$TMP_PROFILES" "$PROFILES_JSON"
     success "Biblioteca registrada en lutris-profiles.json."
 
 else
@@ -719,7 +687,9 @@ else
     exit 1
 
 fi
+}
 
+regenerate_kde_menu(){
 # ------------------------------------------------------------
 # Regenerar menú contextual de KDE
 # ------------------------------------------------------------
@@ -732,7 +702,9 @@ if "$SCRIPT_DIR/update-contextual-menu.sh"; then
 else
     warning "No se pudo actualizar automáticamente el menú contextual."
 fi
+}
 
+resume(){
 echo "========================================"
 echo "   BIBLIOTECA CREADA CORRECTAMENTE"
 echo "========================================"
@@ -754,7 +726,9 @@ if $HAS_PIN; then
 else
     success "Protección mediante PIN: desactivada"
 fi
+}
 
+final_disclaimer (){
 echo
 echo "La biblioteca utiliza los runners y runtimes"
 echo "compartidos con Lutris."
@@ -776,3 +750,33 @@ echo "========================================"
 echo "                 FIN"
 echo "========================================"
 echo
+}
+
+main(){
+    disclaimer
+    check_environment
+    configure_name
+    configure_pin
+    summary
+    create_library
+    create_launcher
+
+if ! verify_installation; then
+
+    error "La creación no ha terminado correctamente."
+    echo
+    echo "La biblioteca puede estar incompleta:"
+    echo "  $PRIVATE_DIR"
+    exit 1
+
+fi
+registry_library_profile
+regenerate_kde_menu
+resume
+final_disclaimer
+}
+
+main
+
+
+
