@@ -1,17 +1,13 @@
 #!/usr/bin/env bash
 
-set -u
+set -Eeuo pipefail
 
-# ============================================================
-# Crear biblioteca privada de Lutris
-# ============================================================
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROFILES_JSON="$HOME/.config/lutris-profiles.json"
 LIBRARY_BASE="$HOME/.local/share"
 NORMAL_LUTRIS="$HOME/.local/share/lutris"
 BIN_DIR="$HOME/.local/bin"
 
-# Fichero oculto donde se almacena el SHA-256 del PIN
 HASH_FILE=".access"
 
 MAX_NAME_LENGTH=50
@@ -19,7 +15,7 @@ MIN_PIN_LENGTH=4
 MAX_PIN_LENGTH=8
 
 # ------------------------------------------------------------
-# Colores
+# Colors
 # ------------------------------------------------------------
 
 RED='\033[0;31m'
@@ -27,10 +23,6 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
 NC='\033[0m'
-
-# ------------------------------------------------------------
-# Funciones
-# ------------------------------------------------------------
 
 error() {
     echo -e "${RED}✗ $1${NC}"
@@ -78,9 +70,6 @@ fi
 
 if ! jq empty "$PROFILES_JSON" >/dev/null 2>&1; then
     error "El fichero lutris-profiles.json no es un JSON válido."
-    echo
-    echo "Corrige primero:"
-    echo "  $PROFILES_JSON"
     pause_exit
 fi
 
@@ -156,9 +145,6 @@ success "Directorios de destino disponibles."
 
 }
 disclaimer(){
-# ------------------------------------------------------------
-# Cabecera
-# ------------------------------------------------------------
 
 clear
 
@@ -204,9 +190,6 @@ esac
 echo
 }
 check_environment () {
-# ------------------------------------------------------------
-# Comprobaciones iniciales
-# ------------------------------------------------------------
 
 echo "========================================"
 echo "       COMPROBANDO EL ENTORNO"
@@ -220,8 +203,6 @@ check_lutris_installation
 
 check_target_directories
 
-
-echo
 }
 
 validate_library_name(){
@@ -267,7 +248,7 @@ validate_pin(){
             return 1
     fi
 
-    if (( ${#PIN} < MIN_PIN_LENGTH || ${#PIN} > MAX_PIN_LENGTH )); then
+    if (( ${#pin} < MIN_PIN_LENGTH || ${#pin} > MAX_PIN_LENGTH )); then
         printf '%s\n' "El PIN debe tener entre $MIN_PIN_LENGTH y $MAX_PIN_LENGTH dígitos."
         return 1
     fi
@@ -285,10 +266,6 @@ generate_pin_hash(){
     printf '%s' "$pin" | sha256sum | awk '{print $1}'
 }
 configure_name (){
-# ------------------------------------------------------------
-# Nombre
-# ------------------------------------------------------------
-
 local validation_error
 echo "========================================"
 echo "          NOMBRE DE LA BIBLIOTECA"
@@ -485,7 +462,7 @@ link_lutris_resource(){
 
 configure_shared_resources(){
 # ------------------------------------------------------------
-# Compartir Wine
+# Wine
 # ------------------------------------------------------------
 link_lutris_resource \
     "$NORMAL_LUTRIS/runners/wine" \
@@ -493,7 +470,7 @@ link_lutris_resource \
     "Wine"
 
 # ------------------------------------------------------------
-# Compartir runtimes
+# runtimes
 # ------------------------------------------------------------
 link_lutris_resource \
     "$NORMAL_LUTRIS/runtime" \
@@ -504,10 +481,6 @@ link_lutris_resource \
 }
 
 create_private_config(){
-# ------------------------------------------------------------
-# Crear configuración independiente
-# ------------------------------------------------------------
-
 echo
 info "Preparando configuración independiente..."
 
@@ -533,10 +506,6 @@ save_pin_hash(){
     success "Hash SHA-256 guardado."
 }
 create_library(){
-# ------------------------------------------------------------
-# Creación
-# ------------------------------------------------------------
-
 echo "========================================"
 echo "          CREANDO BIBLIOTECA"
 echo "========================================"
@@ -548,20 +517,12 @@ configure_shared_resources
 
 create_private_config
 
-# ------------------------------------------------------------
-# Guardar hash del PIN
-# ------------------------------------------------------------
-
 if $HAS_PIN; then
     save_pin_hash
 fi
 }
 
 create_launcher(){
-# ------------------------------------------------------------
-# Crear lanzador
-# ------------------------------------------------------------
-
 echo
 info "Creando lanzador privado..."
 
@@ -635,10 +596,6 @@ success "Lanzador creado."
 
 
 verify_installation(){
-# ------------------------------------------------------------
-# Comprobación final
-# ------------------------------------------------------------
-
 echo
 echo "========================================"
 echo "       COMPROBANDO LA INSTALACIÓN"
@@ -689,9 +646,6 @@ return "$check_ok"
 
 
 registry_library_profile(){
-# ------------------------------------------------------------
-# Registrar biblioteca en lutris-profiles.json
-# ------------------------------------------------------------
 
 echo
 info "Registrando biblioteca en lutris-profiles.json..."
@@ -699,10 +653,10 @@ info "Registrando biblioteca en lutris-profiles.json..."
 if [[ ! -f "$PROFILES_JSON" ]]; then
     error "No existe el fichero de perfiles:"
     echo "  $PROFILES_JSON"
-    exit 1
+    return 1
 fi
 
-PROFILE_PATH="\$HOME/.local/share/lutris-$SLUG"
+PROFILE_PATH="$HOME/.local/share/lutris-$SLUG"
 
 TMP_PROFILES="${PROFILES_JSON}.tmp"
 
@@ -711,22 +665,24 @@ if jq --arg name "$LIBRARY_NAME" \
       '.[$name] = $path' \
       "$PROFILES_JSON" > "$TMP_PROFILES"; then
 
-    mv -- "$TMP_PROFILES" "$PROFILES_JSON"
-    success "Biblioteca registrada en lutris-profiles.json."
+    if ! mv -f -- "$TMP_PROFILES" "$PROFILES_JSON"; then
+        error "No se pudo actualizar lutris-profiles.json."
+        return 1
+    fi
 
 else
 
     rm -f "$TMP_PROFILES"
     error "No se pudo actualizar lutris-profiles.json."
-    exit 1
+    return 1
 
 fi
+
+success "Biblioteca registrada en lutris-profiles.json."
+return 0
 }
 
 regenerate_kde_menu(){
-# ------------------------------------------------------------
-# Regenerar menú contextual de KDE
-# ------------------------------------------------------------
 
 echo
 info "Actualizando menú contextual de Lutris..."
@@ -804,7 +760,16 @@ if ! verify_installation; then
     exit 1
 
 fi
-registry_library_profile
+
+if ! registry_library_profile; then
+    error "La biblioteca no se pudo registrar."
+    echo "Revirtiendo la creación..."
+
+    rm -rf -- "$PRIVATE_DIR"
+    rm -f -- "$LAUNCHER"
+
+    exit 1
+fi
 regenerate_kde_menu
 resume
 final_disclaimer
