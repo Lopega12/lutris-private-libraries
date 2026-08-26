@@ -212,7 +212,7 @@ echo "========================================"
 echo "       COMPROBANDO EL ENTORNO"
 echo "========================================"
 echo
-check_dependences
+check_dependencies
 
 check_profiles_file
 
@@ -260,7 +260,9 @@ local name_length
 }
 
 validate_pin(){
-    if [[ ! "$PIN" =~ ^[0-9]+$ ]]; then
+    local pin="$1"
+
+    if [[ ! "$pin" =~ ^[0-9]+$ ]]; then
             printf '%s\n' "El PIN solo puede contener números."
             return 1
     fi
@@ -273,12 +275,14 @@ validate_pin(){
     return 0
 }
 generate_slug(){
-    printf '%s' "$LIBRARY_NAME" \
+    local name="$1"
+    printf '%s' "$name" \
         | tr '[:upper:]' '[:lower:]' \
         | sed -E 's/[[:space:]]+/-/g; s/[^a-z0-9_-]//g; s/-+/-/g'
 }
 generate_pin_hash(){
-    printf '%s' "$PIN" | sha256sum | awk '{print $1}'
+    local pin="$1"
+    printf '%s' "$pin" | sha256sum | awk '{print $1}'
 }
 configure_name (){
 # ------------------------------------------------------------
@@ -440,18 +444,8 @@ esac
 echo
 }
 
-
-create_library(){
-# ------------------------------------------------------------
-# Creación
-# ------------------------------------------------------------
-
-echo "========================================"
-echo "          CREANDO BIBLIOTECA"
-echo "========================================"
-echo
-
-mkdir -p \
+create_library_structure(){
+    mkdir -p \
     "$PRIVATE_DIR/lutris/banners" \
     "$PRIVATE_DIR/lutris/coverart" \
     "$PRIVATE_DIR/lutris/games" \
@@ -463,7 +457,9 @@ if [[ ! -d "$PRIVATE_DIR/lutris" ]]; then
     exit 1
 fi
 success "Estructura de la biblioteca creada."
+}
 
+configure_shared_resources(){
 # ------------------------------------------------------------
 # Compartir Wine
 # ------------------------------------------------------------
@@ -510,6 +506,9 @@ else
     exit 1
 fi
 
+}
+
+create_private_config(){
 # ------------------------------------------------------------
 # Crear configuración independiente
 # ------------------------------------------------------------
@@ -520,14 +519,10 @@ info "Preparando configuración independiente..."
 mkdir -p "$PRIVATE_DIR/config"
 
 success "Configuración independiente preparada."
+}
 
-# ------------------------------------------------------------
-# Guardar hash del PIN
-# ------------------------------------------------------------
-
-if $HAS_PIN; then
-
-    echo
+save_pin_hash(){
+ echo
     info "Configurando protección mediante PIN..."
 
     printf '%s\n' "$PIN_HASH" > "$PRIVATE_DIR/$HASH_FILE"
@@ -541,7 +536,29 @@ if $HAS_PIN; then
     fi
 
     success "Hash SHA-256 guardado."
+}
+create_library(){
+# ------------------------------------------------------------
+# Creación
+# ------------------------------------------------------------
 
+echo "========================================"
+echo "          CREANDO BIBLIOTECA"
+echo "========================================"
+echo
+
+create_library_structure
+
+configure_shared_resources
+
+create_private_config
+
+# ------------------------------------------------------------
+# Guardar hash del PIN
+# ------------------------------------------------------------
+
+if $HAS_PIN; then
+    save_pin_hash
 fi
 }
 
