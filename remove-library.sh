@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 
-set -u
+set -eu
 
 # ============================================================
 # Eliminar biblioteca privada de Lutris
 # ============================================================
+MAIN_LIBRARY="lutris"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROFILES_JSON="$HOME/.config/lutris-profiles.json"
 LIBRARY_BASE="$HOME/.local/share"
@@ -117,7 +118,7 @@ for PROFILE in "${PROFILES[@]}"; do
 
     PATH_VALUE=$(jq -r --arg name "$PROFILE" '.[$name]' "$PROFILES_JSON")
 
-    if [[ "$PROFILE" == "Lutris" ]]; then
+    if [[ "${PROFILE,,}" == "$MAIN_LIBRARY" ]]; then
         echo "  $PROFILE"
         echo "    (biblioteca principal — no se puede eliminar)"
         echo
@@ -150,13 +151,7 @@ while true; do
         continue
     fi
 
-    if [[ "$LIBRARY_NAME" == "Lutris" ]]; then
-        error "La biblioteca principal de Lutris no se puede eliminar."
-        echo
-        continue
-    fi
-
-    if [[ "$LIBRARY_NAME" == "Lutris" || "$LIBRARY_NAME" == "lutris" ]]; then
+    if [[ "${LIBRARY_NAME,,}" == "$MAIN_LIBRARY" ]]; then
         error "La biblioteca principal de Lutris no se puede eliminar."
         echo
         continue
@@ -216,10 +211,10 @@ if [[ "$BASE_DATA_DIR" != "$LIBRARY_BASE/lutris-"* ]]; then
     pause_exit
 fi
 
-if [[ "$BASE_DATA_DIR" == "$LIBRARY_BASE/lutris" ]]; then
-    error "La ruta corresponde a la instalación principal de Lutris."
-    pause_exit
-fi
+#if [[ "$BASE_DATA_DIR" == "$LIBRARY_BASE/lutris" ]]; then
+ #   error "La ruta corresponde a la instalación principal de Lutris."
+  #  pause_exit
+#fi
 
 }
 
@@ -256,7 +251,7 @@ echo "Launcher:"
 echo "  $LAUNCHER"
 echo
 
-warning "Esta operación eliminará los datos de esta biblioteca."
+warning "Esta operación eliminará la biblioteca y todos sus archivos asociados."
 warning "Esta operación no se puede deshacer."
 echo
 
@@ -328,26 +323,27 @@ info "Eliminando biblioteca de lutris-profiles.json..."
 
 TMP_PROFILES="${PROFILES_JSON}.tmp"
 
-if jq --arg name "$LIBRARY_NAME" \
+jq --arg name "$LIBRARY_NAME" \
       'del(.[$name])' \
-      "$PROFILES_JSON" > "$TMP_PROFILES"; then
+      "$PROFILES_JSON" > "$TMP_PROFILES"
 
     if jq empty "$TMP_PROFILES" >/dev/null 2>&1; then
         mv -- "$TMP_PROFILES" "$PROFILES_JSON"
-        success "Biblioteca eliminada del JSON."
+        if jq -e --arg name "$LIBRARY_NAME" \
+            'has($name) | not' \
+            "$PROFILES_JSON" >/dev/null 2>&1; then
+            success "Biblioteca eliminada del JSON."
+        else
+            error "La biblioteca todavía aparece en el JSON."
+            return 1
+        fi
     else
         rm -f -- "$TMP_PROFILES"
-        error "El JSON resultante no es válido."
-        exit 1
+        error "JSON resultante no es válido."
+        return 1
     fi
 
-else
 
-    rm -f -- "$TMP_PROFILES"
-    error "No se pudo actualizar lutris-profiles.json."
-    exit 1
-
-fi
 
 }
 
@@ -415,19 +411,6 @@ else
     check_ok=1
 fi
 
-if jq -e --arg name "$LIBRARY_NAME" \
-    'has($name) | not' \
-    "$PROFILES_JSON" >/dev/null 2>&1; then
-
-    success "Perfil eliminado del JSON"
-
-else
-
-    error "El perfil todavía aparece en el JSON."
-    check_ok=1
-
-fi
-
 return check_ok
 
 
@@ -449,10 +432,13 @@ CACHE_DIR="$HOME/.cache/$DIR_NAME"
 LAUNCHER="$BIN_DIR/$DIR_NAME"
 summary
 drop_library
-unregistry_library_profile
 if ! verify_library_removed; then
     error "La eliminación no ha terminado correctamente."
-    exit
+    exit 1
+fi
+if ! unregistry_library_profile; then
+    error "No se pudo actualizar el perfil de la biblioteca."
+    exit 1
 fi
 regenerate_contextual_menu
 
