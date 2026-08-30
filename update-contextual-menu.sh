@@ -37,5 +37,5 @@ done
 
 chmod +x "$DESKTOP_FILE"
 
-# Regenerar base de datos de servicios de KDE Plasma 6
+# Regenerate KDE Plasma 6
 kbuildsycoca6 --noincremental 2>/dev/null
