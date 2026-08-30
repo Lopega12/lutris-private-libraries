@@ -10,11 +10,6 @@ PROFILES_JSON="$HOME/.config/lutris-profiles.json"
 LIBRARY_BASE="$HOME/.local/share"
 BIN_DIR="$HOME/.local/bin"
 
-MAX_NAME_LENGTH=50
-
-# ------------------------------------------------------------
-# Colores
-# ------------------------------------------------------------
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -22,9 +17,6 @@ YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
-# ------------------------------------------------------------
-# Funciones
-# ------------------------------------------------------------
 
 error() {
     echo -e "${RED}✗ $1${NC}"
@@ -48,9 +40,7 @@ pause_exit() {
     exit 1
 }
 
-# ------------------------------------------------------------
-# Cabecera
-# ------------------------------------------------------------
+disclaimer(){
 
 clear
 
@@ -63,10 +53,10 @@ echo
 echo "Este script eliminará una biblioteca privada"
 echo "de Lutris y sus archivos asociados."
 echo
+}
 
-# ------------------------------------------------------------
-# Comprobaciones iniciales
-# ------------------------------------------------------------
+
+check_environment(){
 
 echo "========================================"
 echo "       COMPROBANDO EL ENTORNO"
@@ -100,7 +90,9 @@ fi
 success "JSON válido."
 
 echo
+}
 
+get_libraries(){
 # ------------------------------------------------------------
 # Obtener perfiles
 # ------------------------------------------------------------
@@ -136,10 +128,9 @@ for PROFILE in "${PROFILES[@]}"; do
     fi
 
 done
+}
 
-# ------------------------------------------------------------
-# Nombre
-# ------------------------------------------------------------
+choose_library(){
 
 echo "========================================"
 echo "       BIBLIOTECA A ELIMINAR"
@@ -183,7 +174,9 @@ while true; do
 
     break
 done
+}
 
+validate_library(){
 # ------------------------------------------------------------
 # Obtener ruta desde JSON
 # ------------------------------------------------------------
@@ -228,14 +221,11 @@ if [[ "$BASE_DATA_DIR" == "$LIBRARY_BASE/lutris" ]]; then
     pause_exit
 fi
 
-# ------------------------------------------------------------
-# Rutas asociadas
-# ------------------------------------------------------------
+}
 
-CONFIG_DIR="$HOME/.config/$DIR_NAME"
-CACHE_DIR="$HOME/.cache/$DIR_NAME"
-LAUNCHER="$BIN_DIR/$DIR_NAME"
 
+
+summary(){
 # ------------------------------------------------------------
 # Resumen
 # ------------------------------------------------------------
@@ -283,8 +273,12 @@ case "${CONFIRM,,}" in
 esac
 
 echo
+}
 
-# ------------------------------------------------------------
+
+
+drop_library(){
+#------------------------------------------------------------
 # Eliminar archivos
 # ------------------------------------------------------------
 
@@ -292,6 +286,10 @@ echo "========================================"
 echo "          ELIMINANDO BIBLIOTECA"
 echo "========================================"
 echo
+    drop_library_files
+}
+
+drop_library_files(){
 
 if [[ -e "$BASE_DATA_DIR" || -L "$BASE_DATA_DIR" ]]; then
     rm -rf -- "$BASE_DATA_DIR"
@@ -321,10 +319,10 @@ else
     info "Launcher no encontrado."
 fi
 
-# ------------------------------------------------------------
-# Eliminar del JSON
-# ------------------------------------------------------------
 
+}
+
+unregistry_library_profile(){
 echo
 info "Eliminando biblioteca de lutris-profiles.json..."
 
@@ -351,10 +349,10 @@ else
 
 fi
 
-# ------------------------------------------------------------
-# Regenerar menú contextual
-# ------------------------------------------------------------
+}
 
+
+regenerate_contextual_menu(){
 echo
 info "Actualizando menú contextual de Lutris..."
 
@@ -374,7 +372,10 @@ else
     echo "  $UPDATE_MENU"
 
 fi
+}
 
+
+verify_library_removed(){
 # ------------------------------------------------------------
 # Comprobación final
 # ------------------------------------------------------------
@@ -384,35 +385,34 @@ echo "========================================"
 echo "       COMPROBANDO LA ELIMINACIÓN"
 echo "========================================"
 echo
-
-CHECK_OK=true
+local check_ok=0
 
 if [[ ! -e "$BASE_DATA_DIR" ]]; then
     success "Biblioteca eliminada"
 else
     error "La biblioteca todavía existe."
-    CHECK_OK=false
+    check_ok=1
 fi
 
 if [[ ! -e "$CONFIG_DIR" ]]; then
     success "Configuración eliminada"
 else
     error "La configuración todavía existe."
-    CHECK_OK=false
+    check_ok=1
 fi
 
 if [[ ! -e "$CACHE_DIR" ]]; then
     success "Caché eliminada"
 else
     error "La caché todavía existe."
-    CHECK_OK=false
+    check_ok=1
 fi
 
 if [[ ! -e "$LAUNCHER" ]]; then
     success "Launcher eliminado"
 else
     error "El launcher todavía existe."
-    CHECK_OK=false
+    check_ok=1
 fi
 
 if jq -e --arg name "$LIBRARY_NAME" \
@@ -424,16 +424,38 @@ if jq -e --arg name "$LIBRARY_NAME" \
 else
 
     error "El perfil todavía aparece en el JSON."
-    CHECK_OK=false
+    check_ok=1
 
 fi
 
-echo
+return check_ok
 
-if ! $CHECK_OK; then
+
+}
+
+main(){
+
+disclaimer
+check_environment
+get_libraries
+choose_library
+validate_library
+# ------------------------------------------------------------
+# Rutas asociadas biblioteca lutris
+# ------------------------------------------------------------
+
+CONFIG_DIR="$HOME/.config/$DIR_NAME"
+CACHE_DIR="$HOME/.cache/$DIR_NAME"
+LAUNCHER="$BIN_DIR/$DIR_NAME"
+summary
+drop_library
+unregistry_library_profile
+if ! verify_library_removed; then
     error "La eliminación no ha terminado correctamente."
-    exit 1
+    exit
 fi
+regenerate_contextual_menu
+
 
 echo "========================================"
 echo "   BIBLIOTECA ELIMINADA CORRECTAMENTE"
@@ -444,3 +466,7 @@ success "Biblioteca: $LIBRARY_NAME"
 echo
 info "El menú contextual de KDE ha sido regenerado."
 echo
+
+}
+
+main
