@@ -383,28 +383,28 @@ echo "========================================"
 echo
 local check_ok=0
 
-if [[ ! -e "$BASE_DATA_DIR" ]]; then
+if [[ ! -e "$BASE_DATA_DIR" && ! -L "$BASE_DATA_DIR" ]]; then
     success "Biblioteca eliminada"
 else
     error "La biblioteca todavía existe."
     check_ok=1
 fi
 
-if [[ ! -e "$CONFIG_DIR" ]]; then
+if [[ ! -e "$CONFIG_DIR" && ! -L "$CONFIG_DIR" ]]; then
     success "Configuración eliminada"
 else
     error "La configuración todavía existe."
     check_ok=1
 fi
 
-if [[ ! -e "$CACHE_DIR" ]]; then
+if [[ ! -e "$CACHE_DIR" && ! -L "$CACHE_DIR" ]]; then
     success "Caché eliminada"
 else
     error "La caché todavía existe."
     check_ok=1
 fi
 
-if [[ ! -e "$LAUNCHER" ]]; then
+if [[ ! -e "$LAUNCHER" && ! -L "$LAUNCHER" ]]; then
     success "Launcher eliminado"
 else
     error "El launcher todavía existe."
