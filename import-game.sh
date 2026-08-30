@@ -14,33 +14,21 @@ local PROFILES_JSON="$HOME/.config/lutris-profiles.json"
 local DIR_NAME
 local BASE_DATA_DIR
 
-# Extraer rutas desde el JSON si el perfil no es el por defecto ("Lutris")
 if [ -n "$PROFILE" ] && [ "$PROFILE" != "Lutris" ] && [ -f "$PROFILES_JSON" ]; then
-    # Leer la ruta base del JSON y expandir $HOME
-    BASE_DATA_DIR=$(python3 -c "
-import json, sys, os
-try:
-    with open('$PROFILES_JSON', 'r') as f:
-        data = json.load(f)
-    prof = sys.argv[1]
-    for key, val in data.items():
-        if key.lower() == prof.lower():
-            # Expandir $HOME o ~ a la ruta real
-            print(os.path.expanduser(os.path.expandvars(val)))
-            break
-except Exception:
-    pass
-" "$PROFILE")
+       BASE_DATA_DIR=$(jq -r --arg profile "$PROFILE" '
+        to_entries[]
+        | select(.key | ascii_downcase == ($profile | ascii_downcase))
+        | .value
+        ' "$PROFILES_JSON")
 
-    if [ -n "$BASE_DATA_DIR" ]; then
-        # Extraer el sufijo del perfil (ej: 'lutris-private' o 'lutris-retro')
-        DIR_NAME=$(basename "$BASE_DATA_DIR")
+        if [ -n "$BASE_DATA_DIR" ]; then
+            DIR_NAME=$(basename "$BASE_DATA_DIR")
 
-        export XDG_DATA_HOME="$BASE_DATA_DIR"
-        export XDG_CONFIG_HOME="$HOME/.config/$DIR_NAME"
-        export XDG_CACHE_HOME="$HOME/.cache/$DIR_NAME"
+            export XDG_DATA_HOME="$BASE_DATA_DIR"
+            export XDG_CONFIG_HOME="$HOME/.config/$DIR_NAME"
+            export XDG_CACHE_HOME="$HOME/.cache/$DIR_NAME"
+        fi
     fi
-fi
 }
 
 executable_detection(){
