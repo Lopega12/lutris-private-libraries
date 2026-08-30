@@ -97,6 +97,9 @@ get_libraries(){
 # ------------------------------------------------------------
 # Obtener perfiles
 # ------------------------------------------------------------
+local -a PROFILES
+local PROFILE
+local PATH_VALUE
 
 mapfile -t PROFILES < <(jq -r 'keys[]' "$PROFILES_JSON")
 
@@ -224,6 +227,7 @@ summary(){
 # ------------------------------------------------------------
 # Resumen
 # ------------------------------------------------------------
+local CONFIRM
 
 echo
 echo "========================================"
@@ -321,7 +325,7 @@ unregistry_library_profile(){
 echo
 info "Eliminando biblioteca de lutris-profiles.json..."
 
-TMP_PROFILES="${PROFILES_JSON}.tmp"
+local TMP_PROFILES="${PROFILES_JSON}.tmp"
 
 jq --arg name "$LIBRARY_NAME" \
       'del(.[$name])' \
@@ -352,7 +356,7 @@ regenerate_contextual_menu(){
 echo
 info "Actualizando menú contextual de Lutris..."
 
-UPDATE_MENU="$SCRIPT_DIR/update-contextual-menu.sh"
+local UPDATE_MENU="$SCRIPT_DIR/update-contextual-menu.sh"
 
 if [[ -x "$UPDATE_MENU" ]]; then
 
@@ -411,7 +415,7 @@ else
     check_ok=1
 fi
 
-return check_ok
+return "$check_ok"
 
 
 }
