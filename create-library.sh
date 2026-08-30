@@ -770,7 +770,17 @@ if ! registry_library_profile; then
 
     exit 1
 fi
-regenerate_kde_menu
+
+read -rp "¿Quieres actualizar el menú contextual de KDE? [S/n]: " UPDATE_MENU
+
+case "${UPDATE_MENU,,}" in
+    n|no)
+        info "El menú contextual no se ha actualizado."
+        ;;
+    *)
+        regenerate_kde_menu
+        ;;
+esac
 resume
 final_disclaimer
 }
