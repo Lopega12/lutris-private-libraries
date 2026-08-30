@@ -9,8 +9,10 @@ PROFILE="$2"
 export DISPLAY="${DISPLAY:-:0}"
 export WAYLAND_DISPLAY="${WAYLAND_DISPLAY}"
 
-# Archivo de perfiles JSON
-PROFILES_JSON="$HOME/.config/lutris-profiles.json"
+obtain_profile(){
+local PROFILES_JSON="$HOME/.config/lutris-profiles.json"
+local DIR_NAME
+local BASE_DATA_DIR
 
 # Extraer rutas desde el JSON si el perfil no es el por defecto ("Lutris")
 if [ -n "$PROFILE" ] && [ "$PROFILE" != "Lutris" ] && [ -f "$PROFILES_JSON" ]; then
@@ -39,13 +41,19 @@ except Exception:
         export XDG_CACHE_HOME="$HOME/.cache/$DIR_NAME"
     fi
 fi
+}
 
+executable_detection(){
+local EXE_FILE
 # Detección del ejecutable si se pasa una carpeta
 if [ -d "$TARGET_PATH" ]; then
     EXE_FILE=$(find "$TARGET_PATH" -maxdepth 2 -type f -iname "*.exe" | head -n 1)
     [ -n "$EXE_FILE" ] && TARGET_PATH="$EXE_FILE"
 fi
+}
 
+prepare_installer(){
+local GAME_NAME
 # Generación de nombres y slugs
 GAME_NAME=$(basename "$(dirname "$TARGET_PATH")")
 [ "$GAME_NAME" = "." ] || [ "$GAME_NAME" = "/" ] && GAME_NAME=$(basename "$TARGET_PATH" | sed -E 's/\.(exe|EXE)$//')
@@ -66,6 +74,13 @@ script:
     exe: "${TARGET_PATH}"
     prefix: "$HOME/.wine-games/proton-prefix"
 EOF
+}
+
+
+main(){
+obtain_profile
+executable_detection
+prepare_installer
 
 # Lanzar Lutris inyectando el entorno asignado
 if [ -n "$XDG_DATA_HOME" ] && [ -n "$XDG_CONFIG_HOME" ]; then
@@ -74,3 +89,6 @@ else
     # Si es "Lutris" o no se especifica perfil, abre la biblioteca predeterminada
     lutris -i "$TMP_YAML" &
 fi
+}
+
+main "$@"
