@@ -5,7 +5,7 @@ PROFILE="$2"
 
 [ -z "$TARGET_PATH" ] && exit 1
 
-# Exportar variables de pantalla para la GUI
+# Export display GUI vars
 export DISPLAY="${DISPLAY:-:0}"
 export WAYLAND_DISPLAY="${WAYLAND_DISPLAY}"
 
@@ -33,7 +33,7 @@ if [ -n "$PROFILE" ] && [ "$PROFILE" != "Lutris" ] && [ -f "$PROFILES_JSON" ]; t
 
 executable_detection(){
 local EXE_FILE
-# Detección del ejecutable si se pasa una carpeta
+# Launcher executable detection
 if [ -d "$TARGET_PATH" ]; then
     EXE_FILE=$(find "$TARGET_PATH" -maxdepth 2 -type f -iname "*.exe" | head -n 1)
     [ -n "$EXE_FILE" ] && TARGET_PATH="$EXE_FILE"
@@ -42,14 +42,14 @@ fi
 
 prepare_installer(){
 local GAME_NAME
-# Generación de nombres y slugs
+# Slugs/Names generator
 GAME_NAME=$(basename "$(dirname "$TARGET_PATH")")
 [ "$GAME_NAME" = "." ] || [ "$GAME_NAME" = "/" ] && GAME_NAME=$(basename "$TARGET_PATH" | sed -E 's/\.(exe|EXE)$//')
 
 SLUG=$(echo "$GAME_NAME" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g' | sed -E 's/^-|-$//g')
 TMP_YAML="/tmp/lutris_${SLUG}.yml"
 
-# Generar el YAML del instalador
+# YAML Install generator
 cat <<EOF > "$TMP_YAML"
 name: "${GAME_NAME}"
 game_slug: "${SLUG}"
@@ -70,11 +70,11 @@ obtain_profile
 executable_detection
 prepare_installer
 
-# Lanzar Lutris inyectando el entorno asignado
+# Inject Lutris launcher to assigment enviroment
 if [ -n "$XDG_DATA_HOME" ] && [ -n "$XDG_CONFIG_HOME" ]; then
     env XDG_DATA_HOME="$XDG_DATA_HOME" XDG_CONFIG_HOME="$XDG_CONFIG_HOME" XDG_CACHE_HOME="$XDG_CACHE_HOME" lutris -i "$TMP_YAML" &
 else
-    # Si es "Lutris" o no se especifica perfil, abre la biblioteca predeterminada
+    # If it is “Lutris” or no profile is specified, open the default library
     lutris -i "$TMP_YAML" &
 fi
 }

@@ -2,9 +2,6 @@
 
 set -eu
 
-# ============================================================
-# Eliminar biblioteca privada de Lutris
-# ============================================================
 MAIN_LIBRARY="lutris"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROFILES_JSON="$HOME/.config/lutris-profiles.json"
@@ -37,7 +34,7 @@ warning() {
 
 pause_exit() {
     echo
-    read -rp "Pulsa Enter para salir..."
+    read -rp "Press Enter to exit..."
     exit 1
 }
 
@@ -47,12 +44,12 @@ clear
 
 echo
 echo "========================================"
-echo "    ELIMINAR BIBLIOTECA PRIVADA LUTRIS"
+echo "    REMOVE PRIVATE LUTRIS LIBRARY"
 echo "========================================"
 echo
 
-echo "Este script eliminará una biblioteca privada"
-echo "de Lutris y sus archivos asociados."
+echo "This script will remove a private Lutris library"
+echo "and its associated files."
 echo
 }
 
@@ -60,42 +57,41 @@ echo
 check_environment(){
 
 echo "========================================"
-echo "       COMPROBANDO EL ENTORNO"
+echo "       CHECKING ENVIRONMENT"
 echo "========================================"
 echo
 
 if [[ ! -f "$PROFILES_JSON" ]]; then
-    error "No existe el fichero de perfiles:"
+    error "Profile file does not exist:"
     echo "  $PROFILES_JSON"
     pause_exit
 fi
 
-success "Fichero de perfiles encontrado."
+success "Profile file found."
 
 if ! command -v jq >/dev/null 2>&1; then
-    error "No se ha encontrado jq."
+    error "jq was not found."
     pause_exit
 fi
 
-success "jq encontrado."
+success "jq found.."
 
-# Comprobar que el JSON es válido
 if ! jq empty "$PROFILES_JSON" >/dev/null 2>&1; then
-    error "El fichero lutris-profiles.json no es un JSON válido."
+    error "The lutris-profiles.json file is not valid JSON."
     echo
-    echo "Corrige primero:"
+    echo "Fix the following file first:"
     echo "  $PROFILES_JSON"
     pause_exit
 fi
 
-success "JSON válido."
+success "Valid JSON."
 
 echo
 }
 
 get_libraries(){
 # ------------------------------------------------------------
-# Obtener perfiles
+# Get profiles
 # ------------------------------------------------------------
 local -a PROFILES
 local PROFILE
@@ -104,16 +100,12 @@ local PATH_VALUE
 mapfile -t PROFILES < <(jq -r 'keys[]' "$PROFILES_JSON")
 
 if (( ${#PROFILES[@]} == 0 )); then
-    error "No hay bibliotecas registradas."
+    error "No libraries are registered."
     pause_exit
 fi
 
-# ------------------------------------------------------------
-# Mostrar bibliotecas
-# ------------------------------------------------------------
-
 echo "========================================"
-echo "        BIBLIOTECAS DISPONIBLES"
+echo "       AVAILABLE LIBRARIES"
 echo "========================================"
 echo
 
@@ -123,7 +115,7 @@ for PROFILE in "${PROFILES[@]}"; do
 
     if [[ "${PROFILE,,}" == "$MAIN_LIBRARY" ]]; then
         echo "  $PROFILE"
-        echo "    (biblioteca principal — no se puede eliminar)"
+        echo "    (main library — cannot be removed)"
         echo
     else
         echo "  $PROFILE"
@@ -137,34 +129,34 @@ done
 choose_library(){
 
 echo "========================================"
-echo "       BIBLIOTECA A ELIMINAR"
+echo "      LIBRARY TO REMOVE"
 echo "========================================"
 echo
 
 while true; do
 
-    read -rp "Nombre de la biblioteca: " LIBRARY_NAME
+    read -rp "Library name: " LIBRARY_NAME
 
     LIBRARY_NAME="${LIBRARY_NAME#"${LIBRARY_NAME%%[![:space:]]*}"}"
     LIBRARY_NAME="${LIBRARY_NAME%"${LIBRARY_NAME##*[![:space:]]}"}"
 
     if [[ -z "$LIBRARY_NAME" ]]; then
-        error "El nombre no puede estar vacío."
+        error "The name cannot be empty."
         echo
         continue
     fi
 
     if [[ "${LIBRARY_NAME,,}" == "$MAIN_LIBRARY" ]]; then
-        error "La biblioteca principal de Lutris no se puede eliminar."
+        error "The main Lutris library cannot be removed."
         echo
         continue
     fi
 
-    # Comprobar que existe exactamente ese perfil
+    # Check that the exact profile exists
     if ! jq -e --arg name "$LIBRARY_NAME" \
         'has($name)' "$PROFILES_JSON" >/dev/null 2>&1; then
 
-        error "No existe una biblioteca con ese nombre:"
+        error "No library with that name exists:"
         echo "  $LIBRARY_NAME"
         echo
         continue
@@ -176,7 +168,7 @@ done
 
 validate_library(){
 # ------------------------------------------------------------
-# Obtener ruta desde JSON
+# Get path from JSON
 # ------------------------------------------------------------
 
 BASE_DATA_DIR=$(jq -r \
@@ -188,66 +180,58 @@ BASE_DATA_DIR=$(printf '%s' "$BASE_DATA_DIR" \
     | sed "s|^\\\$HOME|$HOME|")
 
 if [[ -z "$BASE_DATA_DIR" || "$BASE_DATA_DIR" == "null" ]]; then
-    error "No se ha podido obtener la ruta de la biblioteca."
+    error "Could not determine the library path.."
     pause_exit
 fi
 
 # ------------------------------------------------------------
-# Validación de seguridad de la ruta
+# Path security validation
 # ------------------------------------------------------------
 
 DIR_NAME=$(basename "$BASE_DATA_DIR")
 
 if [[ ! "$DIR_NAME" =~ ^lutris-[a-z0-9_-]+$ ]]; then
-    error "La ruta de la biblioteca no tiene un formato válido:"
+    error "The library path does not have a valid format:"
     echo "  $BASE_DATA_DIR"
     echo
-    error "Por seguridad, no se eliminará nada."
+    error "For safety, nothing will be removed."
     pause_exit
 fi
 
 if [[ "$BASE_DATA_DIR" != "$LIBRARY_BASE/lutris-"* ]]; then
-    error "La biblioteca está fuera del directorio permitido:"
+    error "The library is outside the allowed directory:"
     echo "  $BASE_DATA_DIR"
     echo
-    error "Por seguridad, no se eliminará nada."
+    error "For safety, nothing will be removed."
     pause_exit
 fi
-
-#if [[ "$BASE_DATA_DIR" == "$LIBRARY_BASE/lutris" ]]; then
- #   error "La ruta corresponde a la instalación principal de Lutris."
-  #  pause_exit
-#fi
 
 }
 
 
 
 summary(){
-# ------------------------------------------------------------
-# Resumen
-# ------------------------------------------------------------
 local CONFIRM
 
 echo
 echo "========================================"
-echo "               RESUMEN"
+echo "               SUMMARY"
 echo "========================================"
 echo
 
-echo "Biblioteca:"
+echo "Library:"
 echo "  $LIBRARY_NAME"
 echo
 
-echo "Datos:"
+echo "Data:"
 echo "  $BASE_DATA_DIR"
 echo
 
-echo "Configuración:"
+echo "Configuration:"
 echo "  $CONFIG_DIR"
 echo
 
-echo "Caché:"
+echo "Cache:"
 echo "  $CACHE_DIR"
 echo
 
@@ -255,18 +239,18 @@ echo "Launcher:"
 echo "  $LAUNCHER"
 echo
 
-warning "Esta operación eliminará la biblioteca y todos sus archivos asociados."
-warning "Esta operación no se puede deshacer."
+warning "This operation will remove the library and all its associated files."
+warning "This operation cannot be undone."
 echo
 
-read -rp "¿Eliminar esta biblioteca? [s/N]: " CONFIRM
+read -rp "Remove this library? [y/N]: " CONFIRM
 
 case "${CONFIRM,,}" in
     s|si|sí|y|yes)
         ;;
     *)
         echo
-        info "Operación cancelada."
+        info "Operation cancelled."
         exit 0
         ;;
 esac
@@ -277,12 +261,9 @@ echo
 
 
 drop_library(){
-#------------------------------------------------------------
-# Eliminar archivos
-# ------------------------------------------------------------
 
 echo "========================================"
-echo "          ELIMINANDO BIBLIOTECA"
+echo "          REMOVING LIBRARY"
 echo "========================================"
 echo
     drop_library_files
@@ -292,30 +273,30 @@ drop_library_files(){
 
 if [[ -e "$BASE_DATA_DIR" || -L "$BASE_DATA_DIR" ]]; then
     rm -rf -- "$BASE_DATA_DIR"
-    success "Biblioteca eliminada."
+    success "Library removed."
 else
-    warning "La biblioteca no existe físicamente."
+    warning "The library does not exist on disk."
 fi
 
 if [[ -e "$CONFIG_DIR" || -L "$CONFIG_DIR" ]]; then
     rm -rf -- "$CONFIG_DIR"
-    success "Configuración eliminada."
+    success "Configuration removed."
 else
-    info "Configuración no encontrada."
+    info "Configuration not found."
 fi
 
 if [[ -e "$CACHE_DIR" || -L "$CACHE_DIR" ]]; then
     rm -rf -- "$CACHE_DIR"
-    success "Caché eliminada."
+    success "Cache removed."
 else
-    info "Caché no encontrada."
+    info "Cache not found."
 fi
 
 if [[ -e "$LAUNCHER" || -L "$LAUNCHER" ]]; then
     rm -f -- "$LAUNCHER"
-    success "Launcher eliminado."
+    success "Launcher removed."
 else
-    info "Launcher no encontrado."
+    info "Launcher not found."
 fi
 
 
@@ -323,7 +304,7 @@ fi
 
 unregistry_library_profile(){
 echo
-info "Eliminando biblioteca de lutris-profiles.json..."
+info "Removing library from lutris-profiles.json..."
 
 local TMP_PROFILES="${PROFILES_JSON}.tmp"
 
@@ -336,14 +317,14 @@ jq --arg name "$LIBRARY_NAME" \
         if jq -e --arg name "$LIBRARY_NAME" \
             'has($name) | not' \
             "$PROFILES_JSON" >/dev/null 2>&1; then
-            success "Biblioteca eliminada del JSON."
+            success "Library removed from JSON."
         else
-            error "La biblioteca todavía aparece en el JSON."
+            error "The library is still present in the JSON."
             return 1
         fi
     else
         rm -f -- "$TMP_PROFILES"
-        error "JSON resultante no es válido."
+        error "The resulting JSON is not valid."
         return 1
     fi
 
@@ -354,21 +335,21 @@ jq --arg name "$LIBRARY_NAME" \
 
 regenerate_contextual_menu(){
 echo
-info "Actualizando menú contextual de Lutris..."
+info "Updating Lutris context menu..."
 
 local UPDATE_MENU="$SCRIPT_DIR/update-contextual-menu.sh"
 
 if [[ -x "$UPDATE_MENU" ]]; then
 
     if "$UPDATE_MENU"; then
-        success "Menú contextual actualizado."
+        success "Context menu updated."
     else
-        warning "No se pudo actualizar automáticamente el menú contextual."
+        warning "The context menu could not be updated automatically."
     fi
 
 else
 
-    warning "No se encontró:"
+    warning "Not found:"
     echo "  $UPDATE_MENU"
 
 fi
@@ -376,42 +357,39 @@ fi
 
 
 verify_library_removed(){
-# ------------------------------------------------------------
-# Comprobación final
-# ------------------------------------------------------------
 
 echo
 echo "========================================"
-echo "       COMPROBANDO LA ELIMINACIÓN"
+echo "       VERIFYING REMOVAL"
 echo "========================================"
 echo
 local check_ok=0
 
 if [[ ! -e "$BASE_DATA_DIR" && ! -L "$BASE_DATA_DIR" ]]; then
-    success "Biblioteca eliminada"
+    success "Library removed."
 else
-    error "La biblioteca todavía existe."
+    error "The library still exists."
     check_ok=1
 fi
 
 if [[ ! -e "$CONFIG_DIR" && ! -L "$CONFIG_DIR" ]]; then
-    success "Configuración eliminada"
+    success "Configuration removed."
 else
-    error "La configuración todavía existe."
+    error "The configuration still exists."
     check_ok=1
 fi
 
 if [[ ! -e "$CACHE_DIR" && ! -L "$CACHE_DIR" ]]; then
-    success "Caché eliminada"
+    success "Cache removed."
 else
-    error "La caché todavía existe."
+    error "The cache still exists."
     check_ok=1
 fi
 
 if [[ ! -e "$LAUNCHER" && ! -L "$LAUNCHER" ]]; then
-    success "Launcher eliminado"
+    success "Launcher removed."
 else
-    error "El launcher todavía existe."
+    error "The launcher still exists."
     check_ok=1
 fi
 
@@ -428,7 +406,7 @@ get_libraries
 choose_library
 validate_library
 # ------------------------------------------------------------
-# Rutas asociadas biblioteca lutris
+# Paths associated with the Lutris library
 # ------------------------------------------------------------
 
 CONFIG_DIR="$HOME/.config/$DIR_NAME"
@@ -437,24 +415,24 @@ LAUNCHER="$BIN_DIR/$DIR_NAME"
 summary
 drop_library
 if ! verify_library_removed; then
-    error "La eliminación no ha terminado correctamente."
+    error "The deletion did not complete successfully."
     exit 1
 fi
 if ! unregistry_library_profile; then
-    error "No se pudo actualizar el perfil de la biblioteca."
+    error "The library profile could not be updated."
     exit 1
 fi
 regenerate_contextual_menu
 
 
 echo "========================================"
-echo "   BIBLIOTECA ELIMINADA CORRECTAMENTE"
+echo "   LIBRARY REMOVED SUCCESSFULLY"
 echo "========================================"
 echo
 
-success "Biblioteca: $LIBRARY_NAME"
+success "Library: $LIBRARY_NAME"
 echo
-info "El menú contextual de KDE ha sido regenerado."
+info "The KDE context menu has been regenerated."
 echo
 
 }
